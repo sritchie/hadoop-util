@@ -66,6 +66,10 @@
 (defn local-filesystem []
   (FileSystem/getLocal (Configuration.)))
 
+(defn mk-local-path [local-dir]
+  (.pathToFile (local-filesystem)
+               (path local-dir)))
+
 (declare copy-local*)
 
 (defn- copy-file-local
