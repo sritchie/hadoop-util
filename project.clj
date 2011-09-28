@@ -1,4 +1,4 @@
-(defproject hadoop-util "0.1.0"
+(defproject hadoop-util "0.2.0"
   :description "Hadoop utilities that we've found useful."
   :dependencies [[org.clojure/clojure "1.2.1"]]
   :dev-dependencies [[swank-clojure "1.4.0-SNAPSHOT"]
