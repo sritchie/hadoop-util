@@ -4,10 +4,8 @@ Useful Hadoop utilities.
 
 ## Usage
 
-FIXME: write
+`hadoop-util` is hosted on [clojars](http://clojars.org/hadoop-util). Add 
 
-## License
+    [hadoop-util "0.1.0"]
 
-Copyright (C) 2011 FIXME
-
-Distributed under the Eclipse Public License, the same as Clojure.
+as a `:dependency` inside of your `project.clj`, and you'll be good to go.
