@@ -1,6 +1,6 @@
 # hadoop-util
 
-Useful Hadoop utilities.
+Useful Hadoop utilities, compatible with Clojure 1.2 and 1.3.
 
 ## Usage
 
