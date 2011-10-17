@@ -18,6 +18,10 @@
   [{key :key value :value conf :conf}]
   (.setFloat conf key value))
 
+(defmethod conf-set Long
+  [{key :key value :value conf :conf}]
+  (.setLong conf key value))
+
 (defn path
   ([str-or-path]
      (if (instance? Path str-or-path)
