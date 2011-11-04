@@ -51,5 +51,3 @@
        (FileNotFoundException.
         (str "Could not find on remote " spath)))
       (copy-local* fs (path spath) dest-path buffer))))
-
-

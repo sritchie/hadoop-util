@@ -18,6 +18,10 @@
   [{key :key value :value conf :conf}]
   (.setFloat conf key value))
 
+(defmethod conf-set Boolean
+  [{key :key value :value conf :conf}]
+  (.setBoolean conf key value))
+
 (defmethod conf-set Long
   [{key :key value :value conf :conf}]
   (.setLong conf key value))
