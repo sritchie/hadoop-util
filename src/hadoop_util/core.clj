@@ -1,5 +1,6 @@
 (ns hadoop-util.core
-  (:import [java.io File FileNotFoundException FileOutputStream BufferedOutputStream]
+  (:import [java.io File FileNotFoundException FileOutputStream
+            BufferedOutputStream]
            [org.apache.hadoop.fs FileSystem Path]
            [org.apache.hadoop.conf Configuration]
            [org.apache.hadoop.mapred JobConf]))
@@ -54,6 +55,7 @@
   (doto (JobConf.)
     (populate-hadoop-config conf-map)))
 
+;; TODO: should just return the fileystem if sent in.
 (defn filesystem
   ([] (filesystem {}))
   ([conf-map]
