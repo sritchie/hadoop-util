@@ -5,8 +5,7 @@
   (:require [hadoop-util.core :as h])
   (:import [java.io File FileNotFoundException
             FileOutputStream BufferedOutputStream]
-           [org.apache.hadoop.fs FileSystem Path]
-           [org.apache.hadoop.conf Configuration]))
+           [org.apache.hadoop.fs FileSystem Path]))
 
 (defn check-in
   "Report the current downloaded number of kilobytes to the supplied agent."
@@ -26,6 +25,14 @@
                                  :sleep-ms 0)
                :else m)))]
     (send throttle-agent bump-kbs kbs)))
+
+(defn update-limit
+  "Updates the throttling agent's rate limit (in kb/s)."
+  [throttle-agent new-limit]
+  {:pre [(pos? new-limit)]}
+  (letfn [(bump [m new-limit]
+            (assoc m :max-kbs new-limit))]
+    (send throttle-agent bump new-limit)))
 
 (defn sleep-interval
   [throttle-agent]
