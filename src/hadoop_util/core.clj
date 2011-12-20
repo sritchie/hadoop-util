@@ -1,5 +1,6 @@
 (ns hadoop-util.core
-  (:import [java.io File FileNotFoundException FileOutputStream BufferedOutputStream]
+  (:import [java.io File FileNotFoundException FileOutputStream
+            BufferedOutputStream]
            [org.apache.hadoop.fs FileSystem Path]
            [org.apache.hadoop.conf Configuration]
            [org.apache.hadoop.mapred JobConf]))
@@ -17,6 +18,10 @@
 (defmethod conf-set Float
   [{key :key value :value conf :conf}]
   (.setFloat conf key value))
+
+(defmethod conf-set Boolean
+  [{key :key value :value conf :conf}]
+  (.setBoolean conf key value))
 
 (defmethod conf-set Long
   [{key :key value :value conf :conf}]
@@ -50,6 +55,7 @@
   (doto (JobConf.)
     (populate-hadoop-config conf-map)))
 
+;; TODO: should just return the fileystem if sent in.
 (defn filesystem
   ([] (filesystem {}))
   ([conf-map]
