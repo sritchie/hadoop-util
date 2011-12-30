@@ -7,24 +7,39 @@
             FileOutputStream BufferedOutputStream]
            [org.apache.hadoop.fs FileSystem Path]))
 
+;; ## Throttling Agent
+
 (defn check-in
-  "Report the current downloaded number of kilobytes to the supplied agent."
+  "Report the current downloaded number of kilobytes to the supplied
+  agent."
   [throttle-agent kbs]
-  (letfn [(bump-kbs [m kbs]
+  (letfn [(bump-kbs
+            [{:keys [sleep-ms last-check max-kbs kb-pool] :as m} kbs]
             (let [m (update-in m [:kb-pool] + kbs)
-                  {:keys [sleep-ms last-check max-kbs kb-pool]} m
                   current-time (System/currentTimeMillis)
-                  secs         (-> current-time (- last-check) (/ 1000))
+                  diff-ms      (if (= current-time last-check)
+                                 1
+                                 (- current-time last-check))
+                  secs         (/ diff-ms 1000)
                   rate         (/ kb-pool secs)]
               (cond
                (> rate max-kbs) (assoc m
                                   :sleep-ms (rand 1000)
                                   :last-check current-time
                                   :kb-pool 0)
-               (pos? sleep-ms) (assoc m
-                                 :sleep-ms 0)
+               (pos? sleep-ms)  (assoc m
+                                  :sleep-ms 0)
                :else m)))]
-    (send throttle-agent bump-kbs kbs)))
+    (when (pos? (:max-kbs @throttle-agent))
+      (send throttle-agent bump-kbs kbs))))
+
+(defn sleep-interval
+  "Returns the current sleep interval specified by the supplied
+  throttling agent."
+  [throttle-agent]
+  (if throttle-agent
+    (:sleep-ms @throttle-agent)
+    0))
 
 (defn update-limit
   "Updates the throttling agent's rate limit (in kb/s)."
@@ -34,20 +49,18 @@
             (assoc m :max-kbs new-limit))]
     (send throttle-agent bump new-limit)))
 
-(defn sleep-interval
-  [throttle-agent]
-  (if throttle-agent
-    (:sleep-ms @throttle-agent)
-    0))
-
 (defn throttle
-  "Returns a throttling agent!"
+  "Returns a throttling agent. Any positive kb-per-second rate will
+  cause throttling; if the rate is zero or negative, downloads will
+  proceed without a throttle."
   [kb-per-second]
   {:pre [(pos? kb-per-second)]}
   (agent {:last-check (System/currentTimeMillis)
           :max-kbs kb-per-second
           :kb-pool    0
           :sleep-ms   0}))
+
+;; ## Recursive Transfer
 
 (defn file-type
   "Accepts a hadoop filesystem object and some path and returns a
@@ -56,8 +69,12 @@
   (cond (.isDirectory fs path) ::directory
         (.isFile fs path)      ::file))
 
-(defmulti copy (fn [& [fs path]]
-                 (file-type fs path)))
+;; Using a multimethod for the file transfer recursion removed the
+;; need for a conditional check within the directory copy.
+
+(defmulti copy
+  (fn [& [fs path]]
+    (file-type fs path)))
 
 (defmethod copy ::file
   [^FileSystem fs ^Path remote-path local-path ^bytes buffer throttle]
@@ -81,6 +98,9 @@
     (let [remote-subpath (.getPath status)
           local-subpath (h/str-path local-path (.getName remote-subpath))]
       (copy fs remote-subpath local-subpath buffer throttle))))
+
+;; TODO: Support transfers between filesystems rather than assuming a
+;; local target.
 
 (defn rcopy
   "Copies information at the supplied remote-path over to the supplied local-path.
