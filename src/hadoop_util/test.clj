@@ -33,19 +33,15 @@
   (str (System/getProperty "java.io.tmpdir") "/" (uuid)))
 
 (defmacro with-local-tmp
-  [[fs-sym & tmp-syms] & [kw & more :as body]]
-  (let [[log-lev body] (if (keyword? kw)
-                         [kw more]
-                         [:warn body])
-        tmp-paths (mapcat (fn [t]
+  [[fs-sym & tmp-syms] & body]
+  (let [tmp-paths (mapcat (fn [t]
                             [t `(local-temp-path)])
                           tmp-syms)]
-    `(log/with-log-level ~log-lev
-       (let [~fs-sym (h/local-filesystem)
-             ~@tmp-paths]
-         (try ~@body
-              (finally
-               (delete-all ~fs-sym [~@tmp-syms])))))))
+    `(let [~fs-sym (h/local-filesystem)
+           ~@tmp-paths]
+       (try ~@body
+            (finally
+             (delete-all ~fs-sym [~@tmp-syms]))))))
 
 (defmacro def-local-fs-test [name local-args & body]
   `(deftest ~name
