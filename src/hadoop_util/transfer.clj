@@ -54,9 +54,10 @@
   cause throttling; if the rate is zero or negative, downloads will
   proceed without a throttle."
   [kb-per-second]
-  {:pre [(pos? kb-per-second)]}
+  {:pre [(or (nil? kb-per-second)
+             (not (neg? kb-per-second)))]}
   (agent {:last-check (System/currentTimeMillis)
-          :max-kbs kb-per-second
+          :max-kbs    (or kb-per-second 0)
           :kb-pool    0
           :sleep-ms   0}))
 
