@@ -1,9 +1,15 @@
 (ns hadoop-util.test
   (:require [hadoop-util.core :as h])
-  (:import [java.util UUID]))
+  (:import [java.util UUID]
+           [org.apache.hadoop.fs FileSystem]))
 
 (defn uuid []
   (str (UUID/randomUUID)))
+
+(defn delete-all [^FileSystem fs paths]
+  (dorun
+   (for [t paths]
+     (.delete fs (h/path t) true))))
 
 (defmacro with-fs-tmp
   [[fs-sym & tmp-syms] & body]
