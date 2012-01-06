@@ -40,6 +40,9 @@
   ([part1 part2 & components]
      (apply str-path (str (path part1 (str part2))) components)))
 
+(defn path-exists? [fs p]
+  (.exists fs (path p)))
+
 (defn populate-hadoop-config
   [conf prop-map]
   (doseq [[k v] prop-map]
