@@ -2,7 +2,8 @@
   "Namespace responsible for recursively transferring directories from
    a distributed filestore (or another local filestore) to the local
    filesystem on the current machine."
-  (:require [hadoop-util.core :as h])
+  (:require [hadoop-util.core :as h]
+            [clojure.java.io :as io])
   (:import [java.io File FileNotFoundException
             FileOutputStream BufferedOutputStream]
            [org.apache.hadoop.fs FileSystem Path]))
@@ -13,25 +14,26 @@
   "Report the current downloaded number of kilobytes to the supplied
   agent."
   [throttle-agent kbs]
-  (letfn [(bump-kbs
-            [{:keys [sleep-ms last-check max-kbs kb-pool] :as m} kbs]
-            (let [m (update-in m [:kb-pool] + kbs)
-                  current-time (System/currentTimeMillis)
-                  diff-ms      (if (= current-time last-check)
-                                 1
-                                 (- current-time last-check))
-                  secs         (/ diff-ms 1000)
-                  rate         (/ kb-pool secs)]
-              (cond
-               (> rate max-kbs) (assoc m
-                                  :sleep-ms (rand 1000)
-                                  :last-check current-time
-                                  :kb-pool 0)
-               (pos? sleep-ms)  (assoc m
-                                  :sleep-ms 0)
-               :else m)))]
-    (when (pos? (:max-kbs @throttle-agent))
-      (send throttle-agent bump-kbs kbs))))
+  (when throttle-agent
+    (letfn [(bump-kbs
+              [{:keys [sleep-ms last-check max-kbs kb-pool] :as m} kbs]
+              (let [m (update-in m [:kb-pool] + kbs)
+                    current-time (System/currentTimeMillis)
+                    diff-ms      (if (= current-time last-check)
+                                   1
+                                   (- current-time last-check))
+                    secs         (/ diff-ms 1000)
+                    rate         (/ kb-pool secs)]
+                (cond
+                 (> rate max-kbs) (assoc m
+                                    :sleep-ms (rand 1000)
+                                    :last-check current-time
+                                    :kb-pool 0)
+                 (pos? sleep-ms)  (assoc m
+                                    :sleep-ms 0)
+                 :else m)))]
+      (when (pos? (:max-kbs @throttle-agent))
+        (send throttle-agent bump-kbs kbs)))))
 
 (defn sleep-interval
   "Returns the current sleep interval specified by the supplied
@@ -81,20 +83,19 @@
   [^FileSystem fs ^Path remote-path local-path ^bytes buffer throttle]
   (with-open [is (.open fs remote-path)
               os (BufferedOutputStream. (FileOutputStream. local-path))]
-    (loop []
-      (let [sleep-ms (sleep-interval throttle)]
-        (if (pos? sleep-ms)
-          (do (Thread/sleep sleep-ms)
-              (recur))
-          (let [amt (.read is buffer)]
-            (when (pos? amt)
-              (.write os buffer 0 amt)
-              (check-in throttle (/ amt 1024))
-              (recur))))))))
+    (loop [sleep-ms (sleep-interval throttle)]
+      (when (pos? sleep-ms)
+        (prn "Sleep: " sleep-ms)
+        (Thread/sleep sleep-ms))
+      (let [amt (.read is buffer)]
+        (when (pos? amt)
+          (.write os buffer 0 amt)
+          (check-in throttle (/ amt 1024))
+          (recur (sleep-interval throttle)))))))
 
 (defmethod copy ::directory
   [^FileSystem fs ^Path remote-path local-path buffer throttle]
-  (.mkdir (File. local-path))
+  (.mkdir (io/as-file local-path))
   (doseq [status (.listStatus fs remote-path)]
     (let [remote-subpath (.getPath status)
           local-subpath (h/str-path local-path (.getName remote-subpath))]
@@ -112,18 +113,19 @@
   (let [buffer      (byte-array (* 1024 15))
         remote-path (h/path remote-path)
         source-name (.getName remote-path)
-        target-path (File. target-path)
+        target-path (io/as-file target-path)
         target-path (cond
                      (not (.exists target-path)) target-path
                      (.isFile target-path)
                      (throw (IllegalArgumentException.
                              (str "File exists: " target-path)))
                      (.isDirectory target-path)
-                     (h/str-path target-path source-name)
+                     (h/str-path (str target-path) source-name)
                      :else
                      (throw (IllegalArgumentException.
                              (format "Unknown error, %s is neither file nor dir."
                                      target-path))))]
+    
     (if (.exists remote-fs remote-path)
       (copy remote-fs remote-path target-path buffer throttle)
       (throw (FileNotFoundException.
