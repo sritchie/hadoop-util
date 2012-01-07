@@ -98,7 +98,7 @@
   (.mkdir (io/as-file local-path))
   (doseq [status (.listStatus fs remote-path)]
     (let [remote-subpath (.getPath status)
-          local-subpath (h/str-path local-path (.getName remote-subpath))]
+          local-subpath (h/str-path (str local-path) (.getName remote-subpath))]
       (copy fs remote-subpath local-subpath buffer throttle))))
 
 ;; TODO: Support transfers between filesystems rather than assuming a
