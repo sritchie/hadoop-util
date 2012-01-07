@@ -95,7 +95,7 @@
 
 (defmethod copy ::directory
   [^FileSystem fs ^Path remote-path local-path buffer throttle]
-  (.mkdir (io/as-file local-path))
+  (.mkdirs (io/as-file local-path))
   (doseq [status (.listStatus fs remote-path)]
     (let [remote-subpath (.getPath status)
           local-subpath (h/str-path (str local-path) (.getName remote-subpath))]
@@ -105,7 +105,8 @@
 ;; local target.
 
 (defn rcopy
-  "Copies information at the supplied remote-path over to the supplied local-path.
+  "Copies information at the supplied remote-path over to the supplied
+ local-path.
 
   Arguments are Filesystem, remote shard path, target local path, and
   an optional throttling agent."
