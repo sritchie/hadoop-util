@@ -126,7 +126,6 @@
                      (throw (IllegalArgumentException.
                              (format "Unknown error, %s is neither file nor dir."
                                      target-path))))]
-    
     (if (.exists remote-fs remote-path)
       (copy remote-fs remote-path target-path buffer throttle)
       (throw (FileNotFoundException.
