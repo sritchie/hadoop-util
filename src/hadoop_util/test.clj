@@ -11,37 +11,44 @@
    (for [t paths]
      (.delete fs (h/path t) true))))
 
+(defn with-fs-tmp* [n afn]
+  (let [prefix    "/tmp/unittests"
+        fs        (h/filesystem)
+        tmp-paths (->> (repeatedly #(str prefix (uuid)))
+                       (take n))]
+    (.mkdirs fs (h/path prefix))
+    (try (apply afn fs tmp-paths)
+         (finally
+          (delete-all fs tmp-paths)))))
+
 (defmacro with-fs-tmp
   [[fs-sym & tmp-syms] & body]
-  (let [tmp-paths (mapcat (fn [t]
-                            [t `(str "/tmp/unittests/" (uuid))])
-                          tmp-syms)]
-    `(let [~fs-sym (h/filesystem)
-           ~@tmp-paths]
-       (.mkdirs ~fs-sym (h/path "/tmp/unittests"))
-       (try ~@body
-            (finally
-             (delete-all ~fs-sym [~@tmp-syms]))))))
+  `(with-fs-tmp* ~(count tmp-syms)
+     (fn [~fs-sym ~@tmp-syms]
+       ~@body)))
+
+(defn local-temp-path []
+  (-> (System/getProperty "java.io.tmpdir")
+      (str "/" (uuid))))
+
+(defn with-local-tmp* [n afn]
+  (let [tmp-paths (take n (repeatedly local-temp-path))
+        fs        (h/local-filesystem)]
+    (try (apply afn fs tmp-paths)
+         (finally
+          (delete-all fs tmp-paths)))))
+
+(defmacro with-local-tmp
+  [[fs-sym & tmp-syms] & body]
+  `(with-local-tmp* ~(count tmp-syms)
+     (fn [~fs-sym ~@tmp-syms]
+       ~@body)))
 
 (defmacro def-fs-test
   [name fs-args & body]
   `(deftest ~name
      (with-fs-tmp ~fs-args
        ~@body)))
-
-(defn local-temp-path []
-  (str (System/getProperty "java.io.tmpdir") "/" (uuid)))
-
-(defmacro with-local-tmp
-  [[fs-sym & tmp-syms] & body]
-  (let [tmp-paths (mapcat (fn [t]
-                            [t `(local-temp-path)])
-                          tmp-syms)]
-    `(let [~fs-sym (h/local-filesystem)
-           ~@tmp-paths]
-       (try ~@body
-            (finally
-             (delete-all ~fs-sym [~@tmp-syms]))))))
 
 (defmacro def-local-fs-test [name local-args & body]
   `(deftest ~name
