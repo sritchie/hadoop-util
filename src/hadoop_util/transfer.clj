@@ -99,7 +99,9 @@
   (doseq [status (.listStatus fs remote-path)]
     (let [remote-subpath (.getPath status)
           local-subpath (h/str-path (str local-path) (.getName remote-subpath))]
-      (copy fs remote-subpath local-subpath buffer throttle))))
+      ;; the first entry returned from `listStatus` is the current remote-path
+      ;; skip over it to avoid looping infinitely
+      (when-not (= remote-subpath remote-path) (copy fs remote-subpath local-subpath buffer throttle)))))
 
 ;; TODO: Support transfers between filesystems rather than assuming a
 ;; local target.
