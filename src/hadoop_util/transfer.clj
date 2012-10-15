@@ -103,17 +103,20 @@
 (defmethod copy ::file
   [^FileSystem fs ^Path remote-path local-path ^bytes buffer throttle]
   ;; Do we need to delete the partial file that might exist on retry from a read timeout?
-  (with-open [is (.open fs remote-path)
-              os (BufferedOutputStream. (FileOutputStream. local-path))]
-    (loop [sleep-ms (sleep-interval throttle)]
-      (when (pos? sleep-ms)
-        (prn "Sleep: " sleep-ms)
-        (Thread/sleep sleep-ms))
-      (let [amt (.read is buffer)]
-        (when (pos? amt)
-          (.write os buffer 0 amt)
-          (check-in throttle (/ amt 1024))
-          (recur (sleep-interval throttle)))))))
+  (let [remote-length (-> (.getFileStatus fs remote-path) (.getLen))]
+    (with-open [is (.open fs remote-path)
+               os (BufferedOutputStream. (FileOutputStream. local-path))]
+     (loop [sleep-ms (sleep-interval throttle)]
+       (when (pos? sleep-ms)
+         (prn "Sleep: " sleep-ms)
+         (Thread/sleep sleep-ms))
+       (let [amt (.read is buffer)]
+         (when (pos? amt)
+           (.write os buffer 0 amt)
+           (check-in throttle (/ amt 1024))
+           (recur (sleep-interval throttle))))))
+    (when-not (= remote-size (.length (io/as-file local-path)))
+      (throw (IOException. "Local file size not equal to remote file size."))))
 
 (defmethod copy ::directory
   [^FileSystem fs ^Path remote-path local-path buffer throttle]
