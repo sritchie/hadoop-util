@@ -63,6 +63,27 @@
           :kb-pool    0
           :sleep-ms   0}))
 
+(defn try-times*
+  "Executes thunk. If an exception is thrown, will retry. At most n retries
+  are done. If still some exception is thrown it is bubbled upwards in
+  the call chain."
+  [n thunk]
+  (loop [n n]
+    (if-let [result (try
+                      [(thunk)]
+                      (catch Exception e
+                        (when (zero? n)
+                          (throw e))))]
+      (result 0)
+      (recur (dec n)))))
+
+(defmacro try-times
+  "Executes body. If an exception is thrown, will retry. At most n retries
+  are done. If still some exception is thrown it is bubbled upwards in
+  the call chain."
+  [[n] & body]
+  `(try-times* ~n (fn [] ~@body)))
+
 ;; ## Recursive Transfer
 
 (defn file-type
@@ -81,20 +102,18 @@
 
 (defmethod copy ::file
   [^FileSystem fs ^Path remote-path local-path ^bytes buffer throttle]
-  (let [remote-size (-> (.getFileStatus fs remote-path) (.getLen))]
-    (with-open [is (.open fs remote-path)
-               os (BufferedOutputStream. (FileOutputStream. local-path))]
-     (loop [sleep-ms (sleep-interval throttle)]
-       (when (pos? sleep-ms)
-         (prn "Sleep: " sleep-ms)
-         (Thread/sleep sleep-ms))
-       (let [amt (.read is buffer)]
-         (when (pos? amt)
-           (.write os buffer 0 amt)
-           (check-in throttle (/ amt 1024))
-           (recur (sleep-interval throttle))))))
-    (when-not (= remote-size (.length (io/as-file local-path)))
-      (throw (IOException. "Local file size not equal to remote file size.")))))
+  ;; Do we need to delete the partial file that might exist on retry from a read timeout?
+  (with-open [is (.open fs remote-path)
+              os (BufferedOutputStream. (FileOutputStream. local-path))]
+    (loop [sleep-ms (sleep-interval throttle)]
+      (when (pos? sleep-ms)
+        (prn "Sleep: " sleep-ms)
+        (Thread/sleep sleep-ms))
+      (let [amt (.read is buffer)]
+        (when (pos? amt)
+          (.write os buffer 0 amt)
+          (check-in throttle (/ amt 1024))
+          (recur (sleep-interval throttle)))))))
 
 (defmethod copy ::directory
   [^FileSystem fs ^Path remote-path local-path buffer throttle]
@@ -105,7 +124,8 @@
       ;; the first entry returned from `listStatus` is the current remote-path
       ;; skip over it to avoid looping infinitely
       (when-not (= remote-subpath remote-path)
-        (copy fs remote-subpath local-subpath buffer throttle)))))
+        ;; try to copy up to 3 times
+        (try-times [3] (copy fs remote-subpath local-subpath buffer throttle))))))
 
 ;; TODO: Support transfers between filesystems rather than assuming a
 ;; local target.
