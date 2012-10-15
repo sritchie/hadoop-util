@@ -116,7 +116,7 @@
            (check-in throttle (/ amt 1024))
            (recur (sleep-interval throttle))))))
     (when-not (= remote-size (.length (io/as-file local-path)))
-      (throw (IOException. "Local file size not equal to remote file size."))))
+      (throw (IOException. "Local file size not equal to remote file size.")))))
 
 (defmethod copy ::directory
   [^FileSystem fs ^Path remote-path local-path buffer throttle]
