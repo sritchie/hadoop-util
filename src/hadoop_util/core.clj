@@ -83,5 +83,9 @@
   (.pathToFile (local-filesystem)
                (path local-dir)))
 
-(defn mk-qualified-path [str-or-path]
-  (.makeQualified (path str-or-path) (filesystem)))
+(defn mk-qualified-path
+  ([str-or-path]
+     (mk-qualified-path (path str-or-path) (filesystem)))
+  ([str-or-path ^FileSystem fs]
+     (.makeQualified (path str-or-path) fs)))
+
