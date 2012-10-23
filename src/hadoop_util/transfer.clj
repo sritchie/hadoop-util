@@ -69,13 +69,11 @@
   the call chain."
   [n thunk]
   (loop [n n]
-    (if-let [result (try
-                      [(thunk)]
-                      (catch Exception e
-                        (when (zero? n)
-                          (throw e))))]
-      (result 0)
-      (recur (dec n)))))
+    (or (try (thunk)
+             (catch Exception e
+               (when (zero? n)
+                 (throw e))))
+        (recur (dec n)))))
 
 (defmacro try-times
   "Executes body. If an exception is thrown, will retry. At most n retries
